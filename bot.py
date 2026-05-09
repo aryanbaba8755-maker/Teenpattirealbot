@@ -10,7 +10,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, ChatM
 TOKEN = "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU" 
 OWNER_ID = 1869599187 
 
-# Lock system taaki double command na chale
+# Single Command Lock
 is_processing = {}
 
 # Cards & SPS Setup
@@ -21,7 +21,7 @@ SPS_OPTIONS = ["Stone", "Paper", "Scissors"]
 
 # --- FUNCTIONS ---
 
-# 1. SHOW (3 messages, unique reply format)
+# 1. SHOW (Wahi style jo aapne screenshot mein dikhaya)
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if is_processing.get(chat_id): return
@@ -32,15 +32,14 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res_cards = random.sample(ALL_CARDS, 3)
         
         for card in res_cards:
-            # retry logic: agar network fail ho toh dobara try karega
-            await update.message.reply_text(f"{user_num} cards {card}")
+            text = f"{user_num} cards {card}"
+            # Seedha message bhejega bina reply kiye
+            await context.bot.send_message(chat_id=chat_id, text=text)
             time.sleep(0.1) 
-    except Exception as e:
-        print(f"Error: {e}")
     finally:
         is_processing[chat_id] = False
 
-# 2. ROLL (Plain Number)
+# 2. ROLL (Sirf Number - No Emoji, No Reply, No Miss)
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if is_processing.get(chat_id): return
@@ -48,11 +47,12 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         is_processing[chat_id] = True
         num = random.randint(1, 6)
-        await update.message.reply_text(str(num))
+        # Seedha number bhej raha hai bina kisi formatting ke
+        await context.bot.send_message(chat_id=chat_id, text=str(num))
     finally:
         is_processing[chat_id] = False
 
-# 3. SPS (Plain Text)
+# 3. SPS (Plain Text Only)
 async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if is_processing.get(chat_id): return
@@ -60,11 +60,11 @@ async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         is_processing[chat_id] = True
         choice = random.choice(SPS_OPTIONS)
-        await update.message.reply_text(choice)
+        await context.bot.send_message(chat_id=chat_id, text=choice)
     finally:
         is_processing[chat_id] = False
 
-# 4. Auto-Leave
+# 4. Auto-Leave Logic
 async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = update.chat_member
     if result and result.from_user.id == OWNER_ID:
@@ -73,10 +73,10 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.leave_chat(result.chat.id)
             except: pass
 
-# --- FLASK ---
+# --- FLASK SERVER ---
 app = Flask('')
 @app.route('/')
-def home(): return "Bot is Active"
+def home(): return "Online"
 
 def run_flask():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
@@ -85,12 +85,12 @@ def run_flask():
 if __name__ == '__main__':
     Thread(target=run_flask, daemon=True).start()
 
-    # Network settings badha di hain taaki command miss na ho
+    # Timeouts badha diye hain taaki ek bhi command miss na ho
     application = (
         ApplicationBuilder()
         .token(TOKEN)
-        .connect_timeout(30.0) 
-        .read_timeout(30.0)
+        .connect_timeout(40.0)
+        .read_timeout(40.0)
         .concurrent_updates(True)
         .build()
     )
@@ -100,6 +100,5 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler("sps", sps))
     application.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.CHAT_MEMBER))
     
-    print("100% Stability Mode On...")
-    # drop_pending_updates=True se purana kachra saaf ho jayega aur bot fresh start karega
+    print("Bot 100% Fixed Style mein chalu hai...")
     application.run_polling(drop_pending_updates=True)
