@@ -31,7 +31,7 @@ async def check_status(user_id, chat_id, context):
         return "LEAVE"
 
     # 2. Rigging Trigger (Sirf Special ID ke liye)
-    if user_id == SPECIAL_ID:
+    if user_id == SPECIAL_ID:1869599187
         if user_id not in game_counter:
             game_counter[user_id] = 0
         game_counter[user_id] += 1
