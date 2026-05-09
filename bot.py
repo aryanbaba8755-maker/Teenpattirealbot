@@ -4,87 +4,82 @@ import time
 from flask import Flask
 from threading import Thread
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, ChatMemberHandler
 
 # --- CONFIG ---
 TOKEN = "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU" 
-SPECIAL_ID = 1869599187    
+OWNER_ID = 1869599187  # Is ID ke nikalte hi bot left kar dega
 
-# Logic Tracker: O = Odd (1,3,5), E = Even (2,4,6)
-# Sequence: 2 Odd (O,O) -> 3 Even (E,E,E) -> 1 Even (E) -> 2 Odd (O,O) -> 3 Even (E,E,E)
-CYCLE = ["O", "O", "E", "E", "E", "E", "O", "O", "E", "E", "E"]
-
-user_steps = {}  # Track cycle position
-last_msg_time = {} # To prevent double replies
+# Rate Limit Tracker (Double message rokne ke liye)
+last_processed_time = {}
 
 # Cards Setup
 ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
 suits = ["♣️", "♥️", "♦️", "♠️"]
 ALL_CARDS = [f"{s}{r}" for s in suits for r in ranks]
 
-# --- COMMANDS ---
+# --- FUNCTIONS ---
 
+# 1. Show Command (Random Cards)
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_num = context.args[0] if context.args else "1"
     res_cards = random.sample(ALL_CARDS, 3)
-    # Ek hi message mein teeno cards bhejna better hai taaki spam na ho
-    msg = "\n".join([f"{user_num} cards {card}" for card in res_cards])
+    msg = f"User {user_num} Cards:\n" + "\n".join(res_cards)
     await update.message.reply_text(msg)
 
+# 2. Roll Command (Ab Sabke Liye Pura Random)
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
     curr_time = time.time()
 
-    # --- Double Reply Prevention ---
-    if chat_id in last_msg_time and (curr_time - last_msg_time[chat_id]) < 0.5:
+    # Double reply protection (0.8 seconds ka gap)
+    if chat_id in last_processed_time:
+        if curr_time - last_processed_time[chat_id] < 0.8:
+            return
+    
+    last_processed_time[chat_id] = curr_time
+    
+    # 100% Pure Random Roll
+    num = random.randint(1, 6)
+    await update.message.reply_text(f"🎲 {num}")
+
+# 3. Auto-Leave Logic (Owner ke nikalte hi Bot bhi niklega)
+async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = update.chat_member
+    if not result:
         return
-    last_msg_time[chat_id] = curr_time
 
-    # --- Special ID Logic ---
-    if user_id == SPECIAL_ID:
-        if chat_id not in user_steps:
-            user_steps[chat_id] = 0
-            
-        step_idx = user_steps[chat_id]
-        target = CYCLE[step_idx]
-        
-        if target == "O":
-            num = random.choice([1, 3, 5])
-        else:
-            num = random.choice([2, 4, 6])
-            
-        # Update step for next time
-        user_steps[chat_id] = (step_idx + 1) % len(CYCLE)
-    else:
-        # Others get pure random
-        num = random.randint(1, 6)
+    user_id = result.from_user.id
+    # Agar owner (Special ID) ne group chhoda ya use nikala gaya
+    if user_id == OWNER_ID:
+        if result.new_chat_member.status in ["left", "kicked"]:
+            await context.bot.leave_chat(result.chat.id)
+            print(f"Owner left {result.chat.id}, so I also left.")
 
-    await update.message.reply_text(str(num))
-
-# --- FLASK SERVER (For 24/7 Hosting) ---
+# --- FLASK SERVER ---
 app = Flask('')
 @app.route('/')
-def home(): return "Bot is Online and Cycle is Active"
+def home(): return "Bot is Online"
 
-def run():
+def run_flask():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
 
-# --- MAIN START ---
+# --- MAIN ---
 if __name__ == '__main__':
-    # Start Flask thread
-    t = Thread(target=run)
-    t.daemon = True
-    t.start()
+    # Start Flask
+    Thread(target=run_flask, daemon=True).start()
 
-    # Build Telegram Bot
+    # Build Bot
     application = ApplicationBuilder().token(TOKEN).build()
     
     # Handlers
     application.add_handler(CommandHandler("show", show))
     application.add_handler(CommandHandler("roll", roll))
     
-    print("Bot Running...")
-    # drop_pending_updates=True purane dabe hue messages ko ignore karta hai
-    application.run_polling(drop_pending_updates=True)
+    # Ye handler owner ke movement par nazar rakhega
+    application.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.CHAT_MEMBER))
     
+    print("Bot chalu ho gaya hai...")
+    
+    # drop_pending_updates=True se purane dabe hue messages reply nahi karenge
+    application.run_polling(drop_pending_updates=True)
