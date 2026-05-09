@@ -23,49 +23,62 @@ SPS_OPTIONS = ["Stone", "Paper", "Scissors"]
 
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    message_id = update.message.message_id # Command message ki ID
     
-    # AGAR BOT BUSY HAI TOH BILKUL REPLY NAHI KAREGA
     if chat_id in processing_chats:
         return
 
     try:
-        processing_chats.add(chat_id) # Lock lagao
+        processing_chats.add(chat_id)
         user_num = context.args[0] if context.args else "1"
-        
-        # 100% Guarantee: Sirf 3 cards hi select honge
         res_cards = random.sample(ALL_CARDS, 3)
         
         for card in res_cards:
             text = f"{user_num} cards {card}"
-            # Seedha message bina reply header ke
-            await context.bot.send_message(chat_id=chat_id, text=text)
-            time.sleep(0.05) # Boht chhota gap
+            # reply_to_message_id se bot command waale message ko reply karega
+            await context.bot.send_message(
+                chat_id=chat_id, 
+                text=text, 
+                reply_to_message_id=message_id
+            )
+            time.sleep(0.05)
             
     finally:
-        # Command poori hone ke 0.5s baad hi agle ke liye ready hoga
-        time.sleep(0.5)
-        processing_chats.discard(chat_id) # Lock hatao
+        time.sleep(0.4)
+        processing_chats.discard(chat_id)
 
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    message_id = update.message.message_id
+    
     if chat_id in processing_chats: return
 
     try:
         processing_chats.add(chat_id)
         num = random.randint(1, 6)
-        await context.bot.send_message(chat_id=chat_id, text=str(num))
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=str(num), 
+            reply_to_message_id=message_id
+        )
     finally:
         time.sleep(0.3)
         processing_chats.discard(chat_id)
 
 async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    message_id = update.message.message_id
+    
     if chat_id in processing_chats: return
 
     try:
         processing_chats.add(chat_id)
         choice = random.choice(SPS_OPTIONS)
-        await context.bot.send_message(chat_id=chat_id, text=choice)
+        await context.bot.send_message(
+            chat_id=chat_id, 
+            text=choice, 
+            reply_to_message_id=message_id
+        )
     finally:
         time.sleep(0.3)
         processing_chats.discard(chat_id)
@@ -81,7 +94,7 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- SERVER ---
 app = Flask('')
 @app.route('/')
-def home(): return "Ready"
+def home(): return "Bot is Ready"
 
 def run_flask():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
@@ -90,7 +103,7 @@ def run_flask():
 if __name__ == '__main__':
     Thread(target=run_flask, daemon=True).start()
 
-    # concurrent_updates=False karke bot ko force kiya hai ki ek ek karke hi handle kare
+    # concurrent_updates=False taaki extra messages na aayein
     application = (
         ApplicationBuilder()
         .token(TOKEN)
@@ -103,6 +116,5 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler("sps", sps))
     application.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.CHAT_MEMBER))
     
-    print("Anti-Extra Mode Active...")
-    # drop_pending_updates=True sabse zaroori hai extra messages rokne ke liye
+    print("Reply Mode & Anti-Extra Active...")
     application.run_polling(drop_pending_updates=True)
