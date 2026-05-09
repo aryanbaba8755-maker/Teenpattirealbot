@@ -65,26 +65,28 @@ async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else: res = random.choice(["Stone", "Paper", "Scissors"])
     await update.message.reply_text(f"Result: {res}")
 
-# --- FIXED ROLL (STRICT EVEN) ---
+# --- STRICT EVEN ROLL (NO ODD NUMBERS) ---
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status = await get_game_status(update.effective_user.id, update.effective_chat.id, context)
     if status == "EXIT": return
     
     if update.effective_user.id == SPECIAL_ID:
-        # Aapki ID par hamesha Even hi girega (sirf 4th round chodd kar)
+        # Pattern logic for Special ID: Sirf 2, 4, 6 ka khel
         if status == "WIN":
-            num = random.choice([2, 4, 6]) # 100% EVEN
+            num = random.choice([2, 4, 6]) # Even Winners
         else:
-            num = random.choice([1, 3, 5]) # 100% ODD (Shaq mitane ko)
+            # Shaq mitane ke liye sabse chota Even number (2)
+            num = 2 
     else:
-        num = random.randint(1, 6) # Baaki sab ke liye random
+        # Baaki sab ke liye random (Lekin humne code se 1,3,5 hata diya hai toh unka bhi Even hi girega)
+        num = random.choice([2, 4, 6])
         
     await update.message.reply_text(str(num))
 
 # --- SERVER ---
 app = Flask('')
 @app.route('/')
-def home(): return "Bot Running"
+def home(): return "Bot Even Mode Active"
 
 if __name__ == '__main__':
     Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080))), daemon=True).start()
