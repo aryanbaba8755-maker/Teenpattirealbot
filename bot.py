@@ -19,7 +19,7 @@ OWNER_ID = 7007926290
 TOKEN = "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU"
 
 # Pattern Logic
-WIN_PATTERN = (['O']*3 + ['E']*2 + ['O']*1 + ['E']*4 + ['O']*2 + ['E']*2 + ['O']*1 + ['E']*3 + ['O']*2)
+WIN_PATTERN = (['O']*3 + ['E']*2 + ['O']*1 + ['E']*4 + ['O']*2 + ['E']*2 + ['O']*1 + ['E']*3 + ['O']*2) + ['E']*2
 roll_counts = {}
 
 # Strict Cooldown Lock: Ek user ek second mein ek hi baar click kar sakega
