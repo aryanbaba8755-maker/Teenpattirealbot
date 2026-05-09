@@ -8,53 +8,70 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, ChatM
 
 # --- CONFIG ---
 TOKEN = "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU" 
-OWNER_ID = 1869599187  # Is ID ke nikalte hi bot left kar dega
+OWNER_ID = 1869599187 
 
-# Rate Limit Tracker (Double message rokne ke liye)
+# Double reply protection
 last_processed_time = {}
 
-# Cards Setup
+# Cards & SPS Setup
 ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
 suits = ["♣️", "♥️", "♦️", "♠️"]
 ALL_CARDS = [f"{s}{r}" for s in suits for r in ranks]
+SPS_OPTIONS = ["Stone", "Paper ", "Scissors "]
 
 # --- FUNCTIONS ---
 
-# 1. Show Command (Random Cards)
+# 1. SHOW Command (3 Alag-Alag Messages)
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_num = context.args[0] if context.args else "1"
-    res_cards = random.sample(ALL_CARDS, 3)
-    msg = f"User {user_num} Cards:\n" + "\n".join(res_cards)
-    await update.message.reply_text(msg)
+    try:
+        user_num = context.args[0] if context.args else "1"
+        # 3 different cards select karna
+        res_cards = random.sample(ALL_CARDS, 3)
+        
+        # Har card ko alag message mein bhejna
+        for card in res_cards:
+            await update.message.reply_text(f"{user_num} cards {card}", block=False)
+            # Chhota sa delay taaki messages ka order sahi rahe
+            time.sleep(0.1) 
+            
+    except Exception as e:
+        print(f"Show Error: {e}")
 
-# 2. Roll Command (Ab Sabke Liye Pura Random)
+# 2. ROLL Command (Pure Random)
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     curr_time = time.time()
 
-    # Double reply protection (0.8 seconds ka gap)
-    if chat_id in last_processed_time:
-        if curr_time - last_processed_time[chat_id] < 0.8:
-            return
+    if chat_id in last_processed_time and (curr_time - last_processed_time[chat_id]) < 0.4:
+        return
     
     last_processed_time[chat_id] = curr_time
-    
-    # 100% Pure Random Roll
     num = random.randint(1, 6)
-    await update.message.reply_text(f"🎲 {num}")
+    await update.message.reply_text(str(num), block=False)
 
-# 3. Auto-Leave Logic (Owner ke nikalte hi Bot bhi niklega)
+# 3. SPS Command (Pure Random)
+async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    curr_time = time.time()
+
+    if chat_id in last_processed_time and (curr_time - last_processed_time[chat_id]) < 0.4:
+        return
+    
+    last_processed_time[chat_id] = curr_time
+    choice = random.choice(SPS_OPTIONS)
+    await update.message.reply_text(choice, block=False)
+
+# 4. Auto-Leave Logic
 async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = update.chat_member
-    if not result:
+    if not result or result.from_user.id != OWNER_ID:
         return
 
-    user_id = result.from_user.id
-    # Agar owner (Special ID) ne group chhoda ya use nikala gaya
-    if user_id == OWNER_ID:
-        if result.new_chat_member.status in ["left", "kicked"]:
+    if result.new_chat_member.status in ["left", "kicked"]:
+        try:
             await context.bot.leave_chat(result.chat.id)
-            print(f"Owner left {result.chat.id}, so I also left.")
+        except Exception as e:
+            print(f"Leave Error: {e}")
 
 # --- FLASK SERVER ---
 app = Flask('')
@@ -66,20 +83,16 @@ def run_flask():
 
 # --- MAIN ---
 if __name__ == '__main__':
-    # Start Flask
     Thread(target=run_flask, daemon=True).start()
 
-    # Build Bot
-    application = ApplicationBuilder().token(TOKEN).build()
+    # concurrent_updates se bot fast respond karega
+    application = ApplicationBuilder().token(TOKEN).concurrent_updates(True).build()
     
     # Handlers
     application.add_handler(CommandHandler("show", show))
     application.add_handler(CommandHandler("roll", roll))
-    
-    # Ye handler owner ke movement par nazar rakhega
+    application.add_handler(CommandHandler("sps", sps))
     application.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.CHAT_MEMBER))
     
-    print("Bot chalu ho gaya hai...")
-    
-    # drop_pending_updates=True se purane dabe hue messages reply nahi karenge
+    print("Bot is active...")
     application.run_polling(drop_pending_updates=True)
