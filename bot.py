@@ -9,8 +9,14 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 TOKEN = "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU" 
 SPECIAL_ID = 1869599187    
 
-# Global Counter to track rolls
-roll_count = {} # {'chat_id': count}
+# Global Tracker for Steps
+# Format: {chat_id: current_step_index}
+user_steps = {}
+
+# Sequence Define: O = Odd, E = Even
+# 2 Odd, 3 Even, 1 Even, 2 Odd, 3 Even
+# Total 11 rolls ki cycle hai
+CYCLE = ["O", "O", "E", "E", "E", "E", "O", "O", "E", "E", "E"]
 
 # Cards Setup
 ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
@@ -19,40 +25,33 @@ ALL_CARDS = [f"{s}{r}" for s in suits for r in ranks]
 
 # --- COMMANDS ---
 
-# 1. SHOW (Strictly 3 Cards Only - Random)
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_num = context.args[0] if context.args else "1"
     res_cards = random.sample(ALL_CARDS, 3)
     for card in res_cards:
         await update.message.reply_text(f"{user_num} cards {card}")
 
-# 2. ROLL (10 ODD -> 3 EVEN Pattern)
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
     
-    # Initialize count for this chat if not exists
-    if chat_id not in roll_count:
-        roll_count[chat_id] = 0
-    
-    # Logic for Special ID (Parth)
     if user_id == SPECIAL_ID:
-        count = roll_count[chat_id]
+        # Step track karein
+        if chat_id not in user_steps:
+            user_steps[chat_id] = 0
+            
+        current_step = user_steps[chat_id]
+        target_type = CYCLE[current_step] # Is step par Odd chahiye ya Even
         
-        if count < 10:
-            # First 10 times: ODD
+        if target_type == "O":
             num = random.choice([1, 3, 5])
-        elif count < 13:
-            # Next 3 times: EVEN
-            num = random.choice([2, 4, 6])
         else:
-            # Reset after 13 rolls
-            roll_count[chat_id] = 0
-            num = random.choice([1, 3, 5])
-        
-        roll_count[chat_id] += 1
+            num = random.choice([2, 4, 6])
+            
+        # Agle step par move karein, cycle khatam hone par 0 se restart
+        user_steps[chat_id] = (current_step + 1) % len(CYCLE)
     else:
-        # Others get pure random
+        # Normal users ke liye pure random
         num = random.randint(1, 6)
 
     await update.message.reply_text(str(num))
@@ -60,12 +59,16 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- SERVER ---
 app = Flask('')
 @app.route('/')
-def home(): return "10-3 Cycle Active"
+def home(): return "Custom Cycle Active"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
 
 if __name__ == '__main__':
-    Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080))), daemon=True).start()
+    Thread(target=run_flask, daemon=True).start()
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(CommandHandler("show", show))
     application.add_handler(CommandHandler("roll", roll))
+    print("Bot is running...")
     application.run_polling(drop_pending_updates=True)
     
