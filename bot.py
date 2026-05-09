@@ -10,8 +10,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, ChatM
 TOKEN = "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU" 
 OWNER_ID = 1869599187 
 
-# Single Command Lock
-is_processing = {}
+# Strict Lock: Ek baar mein ek hi command process hogi
+processing_chats = set()
 
 # Cards & SPS Setup
 ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
@@ -21,50 +21,55 @@ SPS_OPTIONS = ["Stone", "Paper", "Scissors"]
 
 # --- FUNCTIONS ---
 
-# 1. SHOW (Wahi style jo aapne screenshot mein dikhaya)
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    if is_processing.get(chat_id): return
+    
+    # AGAR BOT BUSY HAI TOH BILKUL REPLY NAHI KAREGA
+    if chat_id in processing_chats:
+        return
 
     try:
-        is_processing[chat_id] = True
+        processing_chats.add(chat_id) # Lock lagao
         user_num = context.args[0] if context.args else "1"
+        
+        # 100% Guarantee: Sirf 3 cards hi select honge
         res_cards = random.sample(ALL_CARDS, 3)
         
         for card in res_cards:
             text = f"{user_num} cards {card}"
-            # Seedha message bhejega bina reply kiye
+            # Seedha message bina reply header ke
             await context.bot.send_message(chat_id=chat_id, text=text)
-            time.sleep(0.1) 
+            time.sleep(0.05) # Boht chhota gap
+            
     finally:
-        is_processing[chat_id] = False
+        # Command poori hone ke 0.5s baad hi agle ke liye ready hoga
+        time.sleep(0.5)
+        processing_chats.discard(chat_id) # Lock hatao
 
-# 2. ROLL (Sirf Number - No Emoji, No Reply, No Miss)
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    if is_processing.get(chat_id): return
+    if chat_id in processing_chats: return
 
     try:
-        is_processing[chat_id] = True
+        processing_chats.add(chat_id)
         num = random.randint(1, 6)
-        # Seedha number bhej raha hai bina kisi formatting ke
         await context.bot.send_message(chat_id=chat_id, text=str(num))
     finally:
-        is_processing[chat_id] = False
+        time.sleep(0.3)
+        processing_chats.discard(chat_id)
 
-# 3. SPS (Plain Text Only)
 async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    if is_processing.get(chat_id): return
+    if chat_id in processing_chats: return
 
     try:
-        is_processing[chat_id] = True
+        processing_chats.add(chat_id)
         choice = random.choice(SPS_OPTIONS)
         await context.bot.send_message(chat_id=chat_id, text=choice)
     finally:
-        is_processing[chat_id] = False
+        time.sleep(0.3)
+        processing_chats.discard(chat_id)
 
-# 4. Auto-Leave Logic
 async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = update.chat_member
     if result and result.from_user.id == OWNER_ID:
@@ -73,10 +78,10 @@ async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.leave_chat(result.chat.id)
             except: pass
 
-# --- FLASK SERVER ---
+# --- SERVER ---
 app = Flask('')
 @app.route('/')
-def home(): return "Online"
+def home(): return "Ready"
 
 def run_flask():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
@@ -85,13 +90,11 @@ def run_flask():
 if __name__ == '__main__':
     Thread(target=run_flask, daemon=True).start()
 
-    # Timeouts badha diye hain taaki ek bhi command miss na ho
+    # concurrent_updates=False karke bot ko force kiya hai ki ek ek karke hi handle kare
     application = (
         ApplicationBuilder()
         .token(TOKEN)
-        .connect_timeout(40.0)
-        .read_timeout(40.0)
-        .concurrent_updates(True)
+        .concurrent_updates(False) 
         .build()
     )
     
@@ -100,5 +103,6 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler("sps", sps))
     application.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.CHAT_MEMBER))
     
-    print("Bot 100% Fixed Style mein chalu hai...")
+    print("Anti-Extra Mode Active...")
+    # drop_pending_updates=True sabse zaroori hai extra messages rokne ke liye
     application.run_polling(drop_pending_updates=True)
