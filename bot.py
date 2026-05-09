@@ -1,120 +1,90 @@
 import random
+import logging
 import os
-import time
 from flask import Flask
 from threading import Thread
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, ChatMemberHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# --- CONFIG ---
-TOKEN = "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU" 
-OWNER_ID = 1869599187 
+# --- 1. FLASK SERVER SETUP (KEEP ALIVE) ---
+app = Flask('')
 
-# Strict Lock: Ek baar mein ek hi command process hogi
-processing_chats = set()
+@app.route('/')
+def home():
+    return "Bot is Live and Running 24/7!"
 
-# Cards & SPS Setup
-ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
+def run():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.daemon = True
+    t.start()
+
+# --- 2. LOGGING & CONFIG ---
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+OWNER_ID = 7007926290
+TOKEN = "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU"
+
 suits = ["♣️", "♥️", "♦️", "♠️"]
-ALL_CARDS = [f"{s}{r}" for s in suits for r in ranks]
-SPS_OPTIONS = ["Stone", "Paper", "Scissors"]
+ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+DECK = [f"{s}{r}" for s in suits for r in ranks]
 
-# --- FUNCTIONS ---
+# --- 3. HELPER FUNCTION (Admin Check) ---
+async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    try:
+        user_stat = await context.bot.get_chat_member(chat_id, user_id)
+        return user_stat.status in ["administrator", "creator"]
+    except:
+        return False
 
+# --- 4. COMMAND HANDLERS ---
+
+# /show Command
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    message_id = update.message.message_id # Command message ki ID
-    
-    if chat_id in processing_chats:
-        return
-
     try:
-        processing_chats.add(chat_id)
-        user_num = context.args[0] if context.args else "1"
-        res_cards = random.sample(ALL_CARDS, 3)
-        
-        for card in res_cards:
-            text = f"{user_num} cards {card}"
-            # reply_to_message_id se bot command waale message ko reply karega
-            await context.bot.send_message(
-                chat_id=chat_id, 
-                text=text, 
-                reply_to_message_id=message_id
-            )
-            time.sleep(0.05)
-            
-    finally:
-        time.sleep(0.4)
-        processing_chats.discard(chat_id)
+        owner_stat = await context.bot.get_chat_member(chat_id, OWNER_ID)
+        if owner_stat.status not in ["administrator", "creator"]:
+            await context.bot.leave_chat(chat_id)
+            return
 
-async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    message_id = update.message.message_id
-    
-    if chat_id in processing_chats: return
+        if await is_admin(update, context):
+            if not context.args:
+                await update.message.reply_text("❗ Use: /show 1-100")
+                return
+            user_num = context.args[0]
+            selected_cards = random.sample(DECK, 3)
+            for card in selected_cards:
+                await update.message.reply_text(f"{user_num} cards {card}")
+    except Exception as e:
+        logging.error(f"Error in show: {e}")
 
-    try:
-        processing_chats.add(chat_id)
-        num = random.randint(1, 6)
-        await context.bot.send_message(
-            chat_id=chat_id, 
-            text=str(num), 
-            reply_to_message_id=message_id
-        )
-    finally:
-        time.sleep(0.3)
-        processing_chats.discard(chat_id)
-
+# /sps Command (Direct Result)
 async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    message_id = update.message.message_id
-    
-    if chat_id in processing_chats: return
+    if await is_admin(update, context):
+        options = ["Stone", "Paper", "Scissors"]
+        result = random.choice(options)
+        await update.message.reply_text(result)
 
-    try:
-        processing_chats.add(chat_id)
-        choice = random.choice(SPS_OPTIONS)
-        await context.bot.send_message(
-            chat_id=chat_id, 
-            text=choice, 
-            reply_to_message_id=message_id
-        )
-    finally:
-        time.sleep(0.3)
-        processing_chats.discard(chat_id)
+# /roll Command (Direct Number)
+async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if await is_admin(update, context):
+        number = random.randint(1, 6)
+        await update.message.reply_text(str(number))
 
-async def track_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    result = update.chat_member
-    if result and result.from_user.id == OWNER_ID:
-        if result.new_chat_member.status in ["left", "kicked"]:
-            try:
-                await context.bot.leave_chat(result.chat.id)
-            except: pass
-
-# --- SERVER ---
-app = Flask('')
-@app.route('/')
-def home(): return "Bot is Ready"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
-
-# --- MAIN ---
-if __name__ == '__main__':
-    Thread(target=run_flask, daemon=True).start()
-
-    # concurrent_updates=False taaki extra messages na aayein
-    application = (
-        ApplicationBuilder()
-        .token(TOKEN)
-        .concurrent_updates(False) 
-        .build()
-    )
+# --- 5. MAIN EXECUTION ---
+if name == 'main':
+    keep_alive()
+    application = ApplicationBuilder().token(TOKEN).build()
     
     application.add_handler(CommandHandler("show", show))
-    application.add_handler(CommandHandler("roll", roll))
     application.add_handler(CommandHandler("sps", sps))
-    application.add_handler(ChatMemberHandler(track_chats, ChatMemberHandler.CHAT_MEMBER))
+    application.add_handler(CommandHandler("roll", roll))
     
-    print("Reply Mode & Anti-Extra Active...")
+    print("🚀 Bot is starting 24/7 mode...")
     application.run_polling(drop_pending_updates=True)
