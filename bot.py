@@ -48,7 +48,6 @@ async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     try:
-        # Owner & Admin checks
         owner_stat = await context.bot.get_chat_member(chat_id, OWNER_ID)
         if owner_stat.status not in ["administrator", "creator"]:
             await context.bot.leave_chat(chat_id)
@@ -65,31 +64,28 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logging.error(f"Error in show: {e}")
 
-# /sps Command (Stone Paper Scissors)
+# /sps Command (Direct Result)
 async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await is_admin(update, context):
-        options = [" Stone", " Paper", " Scissors"]
+        options = ["Stone", "Paper", "Scissors"]
         result = random.choice(options)
-        await update.message.reply_text(f"Result: *{result}*", parse_mode='Markdown')
+        await update.message.reply_text(result)
 
-# /roll Command (1-6)
+# /roll Command (Direct Number)
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await is_admin(update, context):
         number = random.randint(1, 6)
-        await update.message.reply_text(f"🎲 Rolling... Result: *{number}*", parse_mode='Markdown')
+        await update.message.reply_text(str(number))
 
 # --- 5. MAIN EXECUTION ---
 if __name__ == '__main__':
-    # Flask start karein
     keep_alive()
-    
-    # Application build karein
     application = ApplicationBuilder().token(TOKEN).build()
     
-    # Handlers register karein
     application.add_handler(CommandHandler("show", show))
     application.add_handler(CommandHandler("sps", sps))
     application.add_handler(CommandHandler("roll", roll))
     
     print("🚀 Bot is starting 24/7 mode...")
     application.run_polling(drop_pending_updates=True)
+    
