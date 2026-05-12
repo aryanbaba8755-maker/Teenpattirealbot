@@ -39,7 +39,7 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await context.bot.send_message(
         chat_id=chat_id, 
-        text=f" Roll: {res}", 
+        text=f" {res}", 
         reply_to_message_id=update.message.message_id
     )
 
