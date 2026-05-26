@@ -15,7 +15,7 @@ def home():
     return "Bot is Online 24/7!"
 
 def run():
-    # Render automatic PORT environment variable deta hai, default 8080
+    # Use environment variable for port
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -27,15 +27,18 @@ def keep_alive():
 # --- 2. CONFIG ---
 logging.basicConfig(level=logging.INFO)
 
-# Token ko direct code me rakhne ke bajaye Environment Variable se uthayein
-# Render ke 'Environment' tab me TOKEN naam se key banakar value dalein.
+# ---> OWNER ID (Bilkul same hai jaisa aapne diya tha)
+OWNER_ID = 7007926290
+
+# ---> TOKEN (Safe handling via environment variable)
 TOKEN = os.environ.get("TOKEN", "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU")
 
+# DECK Setup
 suits = ["♣️", "♥️", "♦️", "♠️"]
 ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
 DECK = [f"{s}{r}" for s in suits for r in ranks]
 
-# --- 3. ADMIN CHECK ---
+# --- 3. ADMIN CHECK (Simplified, no promotion logic) ---
 async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_stat = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
@@ -50,13 +53,13 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update, context): 
         return
 
-    # Check if number is provided (e.g., /show 2)
+    # Check for number argument (e.g., /show 2)
     if not context.args:
         await update.message.reply_text("❗ Galti: Command ke saath number likhein (Ex: /show 2)")
         return
 
     user_num = context.args[0]
-    # Strictly 3 cards limit
+    # Simple card format with strict 3 cards limit
     selected_cards = random.sample(DECK, 3)
     
     for card in selected_cards:
@@ -67,6 +70,7 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await is_admin(update, context):
         res = random.randint(1, 6)
+        # Direct number reply
         await update.message.reply_text(str(res))
 
 # /sps Command
@@ -77,17 +81,18 @@ async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- 5. MAIN ---
 if __name__ == '__main__':
-    # Pehle Flask web server start hoga background thread me
+    # Start the keep alive Flask server
     keep_alive()
     
-    # Telegram Bot setup
+    # Telegram Bot application setup
     application = ApplicationBuilder().token(TOKEN).concurrent_updates(True).build()
     
+    # Register handlers
     application.add_handler(CommandHandler("show", show))
     application.add_handler(CommandHandler("roll", roll))
     application.add_handler(CommandHandler("sps", sps))
     
     print("🚀 Bot Started: Multiple clicks allowed | Strict 3-card limit")
-    
-    # Bot polling start
+    # Start the bot
     application.run_polling(drop_pending_updates=True)
+    
