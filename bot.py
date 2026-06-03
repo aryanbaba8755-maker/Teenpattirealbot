@@ -16,40 +16,50 @@ def home(): return "Bot is alive!"
 
 def run_flask(): app.run(host='0.0.0.0', port=8080)
 
-# Security
-async def is_owner(update: Update):
-    return update.effective_user.id == OWNER_ID
+# Security: Sirf Owner ki commands maanega
+async def admin_only(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != OWNER_ID:
+        # Agar admin nahi hai, toh kuch nahi karega (silence)
+        return False
+    
+    # Auto-Leave check
+    try:
+        member = await context.bot.get_chat_member(update.effective_chat.id, OWNER_ID)
+        if member.status in ['left', 'kicked']:
+            await context.bot.leave_chat(update.effective_chat.id)
+            return False
+    except:
+        pass
+    return True
 
 # Commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if await is_owner(update):
-        await update.message.reply_text("Bot Ready and listening!")
+    if await admin_only(update, context):
+        await update.message.reply_text("Bot Ready!")
 
 async def show_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_owner(update): return
-    
-    cmd = context.args # Behtar tareeka arguments lene ka
-    if not cmd:
-        await update.message.reply_text("Enter name or number (e.g., /show 1)")
-        return
-    
-    val = cmd[0]
-    suits = ['♥️', '♦️', '♠️', '♣️']
-    ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
-    result = f"{random.choice(suits)}{random.choice(ranks)}"
-    await update.message.reply_text(f"Result for {val}: {result}")
+    if await admin_only(update, context):
+        cmd = context.args
+        val = cmd[0] if cmd else "Result"
+        
+        suits = ['♥️', '♦️', '♠️', '♣️']
+        ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+        
+        # 3 random cards
+        cards = [f"{random.choice(suits)}{random.choice(ranks)}" for _ in range(3)]
+        await update.message.reply_text(f"Result for {val}:\n{' '.join(cards)}")
 
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_owner(update): return
-    await update.message.reply_text(str(random.randint(1, 6)))
+    if await admin_only(update, context):
+        await update.message.reply_text(str(random.randint(1, 6)))
 
 async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_owner(update): return
-    await update.message.reply_text(random.choice(['Stone', 'Paper', 'Scissors']))
+    if await admin_only(update, context):
+        await update.message.reply_text(random.choice(['Stone', 'Paper', 'Scissors']))
 
 if __name__ == '__main__':
     Thread(target=run_flask, daemon=True).start()
-    
     application = ApplicationBuilder().token(TOKEN).build()
     
     application.add_handler(CommandHandler('start', start))
@@ -57,6 +67,5 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('roll', roll))
     application.add_handler(CommandHandler('sps', sps))
     
-    # SABSE ZAROORI: drop_pending_updates=True
-    print("Bot is starting...")
+    print("Bot is running securely...")
     application.run_polling(drop_pending_updates=True)
