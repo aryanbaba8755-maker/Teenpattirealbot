@@ -1,38 +1,56 @@
-import telebot,
+import random
+import logging
+import os
+import asyncio
 from flask import Flask
 from threading import Thread
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# Flask server taaki Render bot ko band na kare
+# --- 1. FLASK SERVER ---
 app = Flask('')
 @app.route('/')
-def home(): return "Teen Patti Bot is Active!"
-Thread(target=lambda: app.run(host='0.0.0.0', port=8080), daemon=True).start()
+def home(): return "Bot is Online 24/7!"
 
-# Bot Setup
-API_TOKEN = os.environ.get("TOKEN")
-bot = telebot.TeleBot(API_TOKEN)
+def run():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
 
-# Teen Patti Cards logic
-suits = ['♠', '♥', '♦', '♣']
-ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+def keep_alive():
+    t = Thread(target=run)
+    t.daemon = True
+    t.start()
 
-def get_card():
-    return f"{random.choice(ranks)}{random.choice(suits)}"
+# --- 2. CONFIG ---
+logging.basicConfig(level=logging.INFO)
+OWNER_ID = 7007926290
+# Aapka token yahan daal diya hai
+TOKEN = "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU"
 
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "Teen Patti Bot Ready! /card ya /roll use karein.")
+suits = ["♣️", "♥️", "♦️", "♠️"]
+ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+DECK = [f"{s}{r}" for s in suits for r in ranks]
 
-@bot.message_handler(commands=['card'])
-def handle_card(message):
-    # Teen Patti ke liye 3 cards
-    cards = [get_card() for _ in range(3)]
-    bot.reply_to(message, f"Aapke cards: {' '.join(cards)}")
+# --- 3. COMMAND HANDLERS ---
+async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    if not context.args:
+        await update.message.reply_text("❗ Galti: /show [number]")
+        return
+    user_num = context.args[0]
+    selected_cards = random.sample(DECK, 3)
+    for card in selected_cards:
+        await update.message.reply_text(f"{user_num} cards: {card}")
+        await asyncio.sleep(0.05)
 
-@bot.message_handler(commands=['roll'])
-def handle_roll(message):
-    # Sirf 1, 3, 5 ka logic
-    bot.reply_to(message, str(random.choice([1, 3, 5])))
+async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID: return
+    await update.message.reply_text(str(random.choice([1, 3, 5])))
 
-if __name__ == "__main__":
-    bot.infinity_polling(none_stop=True)
+# --- 4. MAIN ---
+if __name__ == '__main__':
+    keep_alive()
+    application = ApplicationBuilder().token(TOKEN).concurrent_updates(True).build()
+    application.add_handler(CommandHandler("show", show))
+    application.add_handler(CommandHandler("roll", roll))
+    print("🚀 Bot Started!")
+    application.run_polling(drop_pending_updates=True)
