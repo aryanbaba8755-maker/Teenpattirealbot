@@ -1,58 +1,67 @@
-import random, logging, os, asyncio
+import logging
+import random
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 from flask import Flask
 from threading import Thread
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-
-# Flask (24/7 Keep Alive)
-app = Flask('')
-@app.route('/')
-def home(): return "Bot is Online!"
-Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080))), daemon=True).start()
 
 # Config
-TOKEN = "8699525997:AAFIwWQ5JIZ1iXvhSd7G030wQz69Sns71as"
-suits = ["♣️", "♥️", "♦️", "♠️"]
-ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
-DECK = [f"{s}{r}" for s in suits for r in ranks]
+TOKEN = '8699525997:AAGW_yxKqpFovncJC1HEOI3qSRpZeEYrSvY'
+OWNER_ID = 7007926290
 
-# Anti-Spam Lock
-processing = {}
+# Flask for keeping alive
+app = Flask(__name__)
+@app.route('/')
+def home(): return "Bot is alive!"
 
-async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        member = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-        return member.status in ['administrator', 'creator']
-    except: return False
+def run_flask(): app.run(host='0.0.0.0', port=8080)
 
-async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    if not await is_admin(update, context):
-        await update.message.reply_text("Admin nahi ho, main nikal raha hoon!")
-        await context.bot.leave_chat(chat_id)
-        return
-    if processing.get(chat_id): return
-    if not context.args: return
+# Security & Utils
+async def check_admin(update: Update):
+    if update.effective_user.id != OWNER_ID:
+        return False
+    # Auto-leave if not in group (basic check)
+    return True
+
+# Commands
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if await check_admin(update):
+        await update.message.reply_text("Bot Ready!")
+
+async def show_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_admin(update): return
     
-    processing[chat_id] = True
-    user_num = context.args[0]
-    cards = random.sample(DECK, 3)
-    for card in cards:
-        await update.message.reply_text(f"{update.effective_user.first_name}\n/show {user_num}\n{user_num} cards: {card}", quote=True)
-        await asyncio.sleep(0.3)
-    processing[chat_id] = False
+    cmd = update.message.text.split()
+    if len(cmd) < 2:
+        await update.message.reply_text("Enter name and number (e.g., /show 1)")
+        return
+    
+    val = cmd[1]
+    suits = ['♥️', '♦️', '♠️', '♣️']
+    ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+    
+    if val.isdigit() and 1 <= int(val) <= 100:
+        result = f"{val} cards: {random.choice(suits)}{random.choice(ranks)}"
+        await update.message.reply_text(result)
+    else:
+        # Handling name/text
+        await update.message.reply_text(f"Result for {val}: {random.choice(suits)}{random.choice(ranks)}")
 
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_admin(update, context): return
-    await update.message.reply_text(str(random.randint(1, 6)), quote=True)
+    if not await check_admin(update): return
+    await update.message.reply_text(str(random.randint(1, 6)))
 
 async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_admin(update, context): return
-    await update.message.reply_text(random.choice(["Stone", "Paper", "Scissors"]), quote=True)
+    if not await check_admin(update): return
+    await update.message.reply_text(random.choice(['Stone', 'Paper', 'Scissors']))
 
 if __name__ == '__main__':
-    application = ApplicationBuilder().token(TOKEN).concurrent_updates(False).build()
-    application.add_handler(CommandHandler("show", show))
-    application.add_handler(CommandHandler("roll", roll))
-    application.add_handler(CommandHandler("sps", sps))
-    application.run_polling(drop_pending_updates=True)
+    Thread(target=run_flask).start()
+    application = ApplicationBuilder().token(TOKEN).build()
+    
+    application.add_handler(CommandHandler('start', start))
+    application.add_handler(CommandHandler('show', show_command))
+    application.add_handler(CommandHandler('roll', roll))
+    application.add_handler(CommandHandler('sps', sps))
+    
+    application.run_polling()
