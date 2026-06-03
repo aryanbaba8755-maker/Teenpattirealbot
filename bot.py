@@ -1,48 +1,38 @@
-import random
-import logging
-import os
-import asyncio
-import threading
+import telebot,
 from flask import Flask
-from telegram.ext import ApplicationBuilder, CommandHandler
+from threading import Thread
 
-# --- 1. FLASK (KEEP ALIVE) ---
+# Flask server taaki Render bot ko band na kare
 app = Flask('')
 @app.route('/')
-def home(): return "Bot is Online!"
+def home(): return "Teen Patti Bot is Active!"
+Thread(target=lambda: app.run(host='0.0.0.0', port=8080), daemon=True).start()
 
-def run_flask():
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+# Bot Setup
+API_TOKEN = os.environ.get("TOKEN")
+bot = telebot.TeleBot(API_TOKEN)
 
-# --- 2. BOT LOGIC ---
-TOKEN = "8699525997:AAGIuGZj2uebowjJKect_xAx2j2QoPTwtMM"
-OWNER_ID = 7007926290
+# Teen Patti Cards logic
+suits = ['♠', '♥', '♦', '♣']
+ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
 
-async def show(update, context):
-    if update.effective_user.id == OWNER_ID:
-        if context.args:
-            user_num = context.args[0]
-            suits = ["♣️", "♥️", "♦️", "♠️"]
-            ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
-            for _ in range(3):
-                card = f"{random.choice(suits)}{random.choice(ranks)}"
-                await update.message.reply_text(f"{user_num} cards: {card}")
-                await asyncio.sleep(0.1)
+def get_card():
+    return f"{random.choice(ranks)}{random.choice(suits)}"
 
-async def roll(update, context):
-    if update.effective_user.id == OWNER_ID:
-        await update.message.reply_text(str(random.choice([1,2,3,4,5,6])))
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.reply_to(message, "Teen Patti Bot Ready! /card ya /roll use karein.")
 
-# --- 3. FIX FOR EVENT LOOP ERROR ---
-async def main():
-    threading.Thread(target=run_flask, daemon=True).start()
-    
-    app_bot = ApplicationBuilder().token(TOKEN).build()
-    app_bot.add_handler(CommandHandler("show", show))
-    app_bot.add_handler(CommandHandler("roll", roll))
-    
-    print("🚀 Bot is running perfectly!")
-    await app_bot.run_polling()
+@bot.message_handler(commands=['card'])
+def handle_card(message):
+    # Teen Patti ke liye 3 cards
+    cards = [get_card() for _ in range(3)]
+    bot.reply_to(message, f"Aapke cards: {' '.join(cards)}")
 
-if __name__ == '__main__':
-    asyncio.run(main())
+@bot.message_handler(commands=['roll'])
+def handle_roll(message):
+    # Sirf 1, 3, 5 ka logic
+    bot.reply_to(message, str(random.choice([1, 3, 5])))
+
+if __name__ == "__main__":
+    bot.infinity_polling(none_stop=True)
