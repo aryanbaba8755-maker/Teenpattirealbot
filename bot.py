@@ -108,7 +108,16 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "2","3","4","5","6","7",
         "8","9","10","J","Q","K","A"
     ]
+for _ in range(3):
 
+    cards = [
+        f"{random.choice(suits)}{random.choice(ranks)}"
+        for _ in range(3)
+    ]
+
+    await update.message.reply_text(
+        f"{value} cards:\n{' '.join(cards)}"
+    )
     # 3 Different Replies
     for _ in range(3):
 
@@ -120,6 +129,9 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"{value} cards:\n{' '.join(cards)}"
         )
+
+cards = [...]
+await update.message.reply_text(...)
 
 # ==========================
 # SPS COMMAND
