@@ -11,11 +11,11 @@ CommandHandler,
 ContextTypes
 )
 
-==========================
+#==========================
 
 CONFIG
 
-==========================
+#==========================
 
 TOKEN = "YOUR_NEW_BOT_TOKEN"
 OWNER_ID = 7007926290
@@ -24,11 +24,11 @@ Render URL
 
 RENDER_URL = "https://your-app-name.onrender.com"
 
-==========================
+#==========================
 
 FLASK SERVER
 
-==========================
+#==========================
 
 app = Flask(name)
 
@@ -39,11 +39,11 @@ return "Bot is Alive!"
 def run_flask():
 app.run(host="0.0.0.0", port=8080)
 
-==========================
+#==========================
 
 KEEP ALIVE
 
-==========================
+#==========================
 
 def keep_alive():
 while True:
@@ -55,11 +55,11 @@ print(e)
 
 time.sleep(300)  # 5 min
 
-==========================
+#==========================
 
 AUTHORIZATION
 
-==========================
+#==========================
 
 async def is_authorized(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -98,11 +98,11 @@ if member.status not in [
 
 return True
 
-==========================
+#==========================
 
 SHOW COMMAND
 
-==========================
+#==========================
 
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -133,11 +133,11 @@ for _ in range(3):
         f"/show {value}\n\n{value} cards: {card}"
     )
 
-==========================
+#==========================
 
 SPS COMMAND
 
-==========================
+#==========================
 
 async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -154,11 +154,11 @@ await update.message.reply_text(
     f"SPS: {result}"  
 )
 
-==========================
+#==========================
 
 ROLL COMMAND
 
-==========================
+#==========================
 
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -169,11 +169,11 @@ await update.message.reply_text(
     str(random.randint(1, 6))  
 )
 
-==========================
+#==========================
 
 MAIN
 
-==========================
+#==========================
 
 if name == "main":
 
