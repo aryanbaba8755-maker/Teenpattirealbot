@@ -31,7 +31,7 @@ logging.basicConfig(level=logging.INFO)
 OWNER_ID = 7007926290
 
 # ---> TOKEN (Safe handling via environment variable)
-TOKEN = os.environ.get("TOKEN", "8699525997:AAG1TqOezIL1tl-Qch9bDKEVmlwW9dEkWqU")
+TOKEN = os.environ.get("TOKEN", "8699525997:AAGIuGZj2uebowjJKect_xAx2j2QoPTwtMM" )
 
 # DECK Setup
 suits = ["♣️", "♥️", "♦️", "♠️"]
