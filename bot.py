@@ -30,7 +30,7 @@ FLASK SERVER
 
 #==========================
 
-app = Flask(name)
+app = Flask(___name___)
 
 @app.route("/")
 def home():
