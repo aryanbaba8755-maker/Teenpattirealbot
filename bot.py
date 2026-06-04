@@ -71,7 +71,8 @@ async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(res)
 
 # --- 5. MAIN ---
-if name == 'main':
+if __name__ == '__main__':
+    
     keep_alive()
     
     # concurrent_updates=True handles multiple clicks/double clicks
