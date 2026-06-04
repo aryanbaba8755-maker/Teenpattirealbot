@@ -1,3 +1,16 @@
+import traceback
+import sys
+
+try:
+    # Aapka pura code yahan rahega
+    print("Bot starting...")
+    # ...
+except Exception as e:
+    print("CRITICAL ERROR:")
+    traceback.print_exc()
+    sys.exit(1)
+    
+
 import random
 import threading
 import time
