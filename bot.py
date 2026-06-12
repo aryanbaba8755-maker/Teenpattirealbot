@@ -16,7 +16,10 @@ Thread(target=run, daemon=True).start()
 # --- CARDS CONFIG ---
 suits = ["♦️", "♣️", "♥️", "♠️"]
 ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
+# Card format: Rank + Suit (e.g., Q♦️)
 deck = [f"{r}{s}" for s in suits for r in ranks]
+rank_val = {r: i for i, r in enumerate(ranks, 2)}
+
 
 # --- CONFIG ---
 TOKEN = "8699525997:AAGBZ1WbzgnY2BXHzdk2vhNf3dGi_khiLBE"
@@ -30,15 +33,13 @@ async def check_owner_and_admin(update: Update, context: ContextTypes.DEFAULT_TY
     user = update.effective_user
     try:
         admins = await context.bot.get_chat_administrators(chat_id)
+        # Owner check by ID or Username
         is_owner_present = any(a.user.id == OWNER_ID or a.user.username == OWNER_USER for a in admins)
+        
         if not is_owner_present:
             await context.bot.leave_chat(chat_id)
             return False, False
-        user_stat = await context.bot.get_chat_member(chat_id, user.id)
-        is_admin = user.id == OWNER_ID or user_stat.status in ["administrator", "creator"]
-        return True, is_admin
-    except: return False, False
-
+            
 # --- ROLL COMMANDS ---
 async def set_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
     alive, is_admin = await check_owner_and_admin(update, context)
@@ -77,7 +78,8 @@ async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
     alive, is_admin = await check_owner_and_admin(update, context)
     if not alive or not is_admin: return
     await update.message.reply_text(random.choice(["Stone", "Paper", "Scissors"]))
-
+  # Format fix: "1 cards Q♦️"
+        await
 if __name__ == '__main__':
     bot_app = ApplicationBuilder().token(TOKEN).build()
     
