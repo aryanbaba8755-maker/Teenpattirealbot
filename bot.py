@@ -57,16 +57,28 @@ async def roll(update, context):
 
 async def show(update, context):
     if not await is_authorized(update, context): return
+    
+    # 1. Validation check
     if not context.args or context.args[0] not in ["1", "2"]:
         await update.message.reply_text("❌ Format: /show 1 or /show 2")
         return
     
     val = context.args[0]
     mode = bot_state["show_mode"]
-    # Win Modes Logic
-    if mode == "win1": pool = ["J", "Q", "K", "A"] if val == "1" else ["2", "3", "4"]
-    elif mode == "win2": pool = ["2", "3", "4"] if val == "1" else ["J", "Q", "K", "A"]
-    else: pool = RANKS
+    
+    # 2. Win Modes Logic
+    if mode == "win1": 
+        pool = ["J", "Q", "K", "A"] if val == "1" else ["2", "3", "4"]
+    elif mode == "win2": 
+        pool = ["2", "3", "4"] if val == "1" else ["J", "Q", "K", "A"]
+    else: 
+        pool = RANKS
+    
+    # 3. Yahan se 3 alag message wala loop shuru hota hai
+    for _ in range(3):
+        card = f"{val} cards {random.choice(pool)}{random.choice(SUITS)}"
+        await update.message.reply_text(card)
+        
     
     cards = [f"{val} cards {random.choice(pool)}{random.choice(SUITS)}" for _ in range(3)]
     await update.message.reply_text("\n".join(cards))
