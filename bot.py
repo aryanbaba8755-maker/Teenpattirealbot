@@ -2,7 +2,7 @@ import random
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-TOKEN = "8699525997:AAH7VjvluYvif8Yt32IxI-wKVRa1muo7yOo"
+TOKEN = "8699525997:AAHTja1rJ4RwKPd3QV-Ye8hg-VnE19kTOSo"
 OWNER_ID = 7007926290
 OWNER_USER = "spidyvarun"
 
@@ -19,169 +19,154 @@ RANK_ORDER = {
 suits = ["♦️", "♣️", "♥️", "♠️"]
 ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
 
-async def is_owner_or_admin(update, context):
-    user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
+# Anti-promotion patterns
+PROMOTION_PATTERNS = [
+    "telegram.me", "t.me", "telegram group", "telegram channel",
+    "join telegram", "whatsapp group", "whatsapp channel",
+    "instagram.com", "facebook.com", "youtube.com",
+    "share", "join now", "add me", "follow me",
+    "click here", "http", "https",
+    "₹", "rs", "money", "bet", "gambling", "casino"
+]
 
-    if user_id == OWNER_ID:
-        return True
+def is_owner_or_admin(update):
+    return update.effective_user.id == OWNER_ID
 
-    try:
-        member = await context.bot.get_chat_member(chat_id, user_id)
-        return member.status in ["administrator", "creator"]
-    except:
+def contains_promotion(text):
+    """Promotion detect karne ke liye"""
+    if not text:
         return False
+    text_lower = text.lower()
+    for pattern in PROMOTION_PATTERNS:
+        if pattern.lower() in text_lower:
+            return True
+    return False
 
-async def check_owner_in_group(update, context):
+def show_result(update, context):
+    if not is_owner_or_admin(update):
+        return
+    
+    # Anti-promotion check
+    user_text = update.message.text or ""
+    if contains_promotion(user_text):
+        context.bot.send_message(
+            update.effective_chat.id,
+            "⚠️ Promotion detected! Do not share promotional content. Bot will not respond."
+        )
+        return
+    
+    special_mode = bot_state["special_mode"]
+    
+    if special_mode == "1111":
+        low_range = (10, 13)
+        high_range = (1, 8)
+    elif special_mode == "2222":
+        low_range = (1, 8)
+        high_range = (10, 13)
+    else:
+        low_range = (1, 8)
+        high_range = (10, 13)
+    
+    low_cards = [
+        (ranks[random.randint(low_range[0], low_range[1])], 
+         suits[random.randint(0, 3)])
+        for _ in range(3)
+    ]
+    
+    high_cards = [
+        (ranks[random.randint(high_range[0], high_range[1])], 
+         suits[random.randint(0, 3)])
+        for _ in range(3)
+    ]
+    
     chat_id = update.effective_chat.id
-
-    try:
-        owner_member = await context.bot.get_chat_member(chat_id, OWNER_ID)
-        return owner_member.status not in ["left", "banned"]
-    except:
-        return False
-
-async def show_result(update, context):
-    if not await is_owner_or_admin(update, context):
-        await update.message.reply_text("❌ Only owner/admin can use this command")
-        return
-
-    if not await check_owner_in_group(update, context):
-        await update.message.reply_text("❌ Owner is not in this group. Bot leaving.")
-        await context.bot.leave_chat(update.effective_chat.id)
-        return
-
-    if context.args is None or len(context.args) == 0:
-        await update.message.reply_text("❌ ERROR: Must use `/show 1` or `/show 2`")
-        return
-
-    cards = []
-
-    if bot_state["special_mode"] == "3333":
-        for _ in range(3):
-            rank = random.choice(ranks)
-            suit = random.choice(suits)
-            cards.append((rank, suit))
-
-    elif bot_state["special_mode"] == "1111":
-        arg = context.args[0].lower()
-        if arg in ["1", "show"]:
-            low_ranks = ["2", "3", "4", "5", "6", "7", "8"]
-            for _ in range(3):
-                rank = random.choice(low_ranks)
-                suit = random.choice(suits)
-                cards.append((rank, suit))
-        else:
-            high_ranks = ["9", "10", "J", "Q", "K", "A"]
-            for _ in range(3):
-                rank = random.choice(high_ranks)
-                suit = random.choice(suits)
-                cards.append((rank, suit))
-
-    elif bot_state["special_mode"] == "2222":
-        arg = context.args[0].lower()
-        if arg in ["1", "show"]:
-            low_ranks = ["2", "3", "4", "5", "6", "7", "8"]
-            for _ in range(3):
-                rank = random.choice(low_ranks)
-                suit = random.choice(suits)
-                cards.append((rank, suit))
-        else:
-            high_ranks = ["9", "10", "J", "Q", "K", "A"]
-            for _ in range(3):
-                rank = random.choice(high_ranks)
-                suit = random.choice(suits)
-                cards.append((rank, suit))
-
-    reply = ""
-    for rank, suit in cards:
-        reply += f"1 cards {rank} {suit}
+    
+    # ONE message me sab cards send karo
+    cards_output = ""
+    if special_mode == "1111":
+        for rank, suit in low_cards:
+            cards_output += f"1 cards {rank} {suit}
 "
+        for rank, suit in high_cards:
+            cards_output += f"2 cards {rank} {suit}
+"
+    elif special_mode == "2222":
+        for rank, suit in high_cards:
+            cards_output += f"1 cards {rank} {suit}
+"
+        for rank, suit in low_cards:
+            cards_output += f"2 cards {rank} {suit}
+"
+    else:
+        for rank, suit in low_cards:
+            cards_output += f"1 cards {rank} {suit}
+"
+        for rank, suit in high_cards:
+            cards_output += f"2 cards {rank} {suit}
+"
+    
+    context.bot.send_message(chat_id, cards_output)
 
-    await update.message.reply_text(reply)
-
-async def roll_logic(update, context):
-    if not await is_owner_or_admin(update, context):
-        await update.message.reply_text("❌ Only owner/admin can use this command")
+def roll_logic(update, context):
+    if not is_owner_or_admin(update):
         return
-
-    if not await check_owner_in_group(update, context):
-        await update.message.reply_text("❌ Owner is not in this group. Bot leaving.")
-        await context.bot.leave_chat(update.effective_chat.id)
+    
+    # Anti-promotion check
+    user_text = update.message.text or ""
+    if contains_promotion(user_text):
+        context.bot.send_message(
+            update.effective_chat.id,
+            "⚠️ Promotion detected! Do not share promotional content. Bot will not respond."
+        )
         return
+    
+    number = random.randint(1, 6)
+    chat_id = update.effective_chat.id
+    context.bot.send_message(chat_id, str(number))
 
-    command = update.message.text.split()[0].lower()
-    cmd_key = f"{command}:{update.message.message_id}"
-
-    if cmd_key in bot_state["last_commands"]:
+def sps(update, context):
+    if not is_owner_or_admin(update):
         return
-    bot_state["last_commands"].add(cmd_key)
-
-    dice = random.randint(1, 6)
-    await update.message.reply_text(str(dice))
-
-async def sps(update, context):
-    if not await is_owner_or_admin(update, context):
-        await update.message.reply_text("❌ Only owner/admin can use this command")
+    
+    # Anti-promotion check
+    user_text = update.message.text or ""
+    if contains_promotion(user_text):
+        context.bot.send_message(
+            update.effective_chat.id,
+            "⚠️ Promotion detected! Do not share promotional content. Bot will not respond."
+        )
         return
+    
+    choices = ["Stone", "Paper", "Scissors"]
+    choice = random.choice(choices)
+    chat_id = update.effective_chat.id
+    context.bot.send_message(chat_id, choice)
 
-    if not await check_owner_in_group(update, context):
-        await update.message.reply_text("❌ Owner is not in this group. Bot leaving.")
-        await context.bot.leave_chat(update.effective_chat.id)
+def set_special_mode_1111(update, context):
+    if not is_owner_or_admin(update):
         return
-
-    result = random.choice(["Stone", "Paper", "Scissors"])
-    await update.message.reply_text(f"🎮 Result: {result}")
-
-async def set_special_mode_1111(update, context):
-    if not await is_owner_or_admin(update, context):
-        await update.message.reply_text("❌ Only owner/admin can use this command")
-        return
-
-    if not await check_owner_in_group(update, context):
-        await update.message.reply_text("❌ Owner is not in this group. Bot leaving.")
-        await context.bot.leave_chat(update.effective_chat.id)
-        return
-
     bot_state["special_mode"] = "1111"
-    await update.message.reply_text("✅ Mode set to: /1111 (show1=BIG, show2=SMALL)")
 
-async def set_special_mode_2222(update, context):
-    if not await is_owner_or_admin(update, context):
-        await update.message.reply_text("❌ Only owner/admin can use this command")
+def set_special_mode_2222(update, context):
+    if not is_owner_or_admin(update):
         return
-
-    if not await check_owner_in_group(update, context):
-        await update.message.reply_text("❌ Owner is not in this group. Bot leaving.")
-        await context.bot.leave_chat(update.effective_chat.id)
-        return
-
     bot_state["special_mode"] = "2222"
-    await update.message.reply_text("✅ Mode set to: /2222 (show1=SMALL, show2=BIG)")
 
-async def set_special_mode_3333(update, context):
-    if not await is_owner_or_admin(update, context):
-        await update.message.reply_text("❌ Only owner/admin can use this command")
+def set_special_mode_3333(update, context):
+    if not is_owner_or_admin(update):
         return
-
-    if not await check_owner_in_group(update, context):
-        await update.message.reply_text("❌ Owner is not in this group. Bot leaving.")
-        await context.bot.leave_chat(update.effective_chat.id)
-        return
-
     bot_state["special_mode"] = "3333"
-    await update.message.reply_text("✅ Mode set to: /3333 (Normal Random)")
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
-
+    
     application.add_handler(CommandHandler("show", show_result))
     application.add_handler(CommandHandler(["roll", "rol", "rolll"], roll_logic))
     application.add_handler(CommandHandler("sps", sps))
     application.add_handler(CommandHandler("1111", set_special_mode_1111))
     application.add_handler(CommandHandler("2222", set_special_mode_2222))
     application.add_handler(CommandHandler("3333", set_special_mode_3333))
-
+    
     application.run_polling()
 
 if __name__ == "__main__":
