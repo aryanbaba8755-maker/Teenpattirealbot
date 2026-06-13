@@ -3,31 +3,38 @@ import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-TOKEN = "YOUR_NEW_TOKEN_HERE" # Naya token dalein
+# --- CONFIG ---
+TOKEN = "YOUR_NEW_TOKEN_HERE"  # Yahan naya token daalein
 OWNER_ID = 7007926290
 OWNER_USER = "spidyvarun"
 state = {"roll_mode": None}
 
+# --- SECURITY CHECK ---
 async def security_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
     try:
         admins = await context.bot.get_chat_administrators(chat_id)
+        # Owner check
         is_owner_present = any(a.user.id == OWNER_ID or a.user.username == OWNER_USER for a in admins)
         if not is_owner_present:
             await context.bot.leave_chat(chat_id)
             return False, False
+            
+        # Admin/Owner access check
         user_stat = await context.bot.get_chat_member(chat_id, user.id)
         is_admin = user.id == OWNER_ID or user_stat.status in ["administrator", "creator"]
         return True, is_admin
-    except: return False, False
+    except:
+        return False, False
 
+# --- COMMANDS ---
 async def handle_roll_modes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     alive, is_admin = await security_check(update, context)
     if not alive or not is_admin: return
     
-    cmd = update.message.text.lstrip("/")
-    if cmd == "rol":
+    cmd = update.message.text.lstrip("/").lower()
+    if cmd in ["rol", "rool"]: # Dono command handled
         state["roll_mode"] = "even"
         await update.message.reply_text("Even Mode Active (2, 4, 6)")
     elif cmd == "rolll":
@@ -60,13 +67,23 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE):
     deck = [f"{r}{s}" for s in suits for r in ranks]
     cards = random.sample(deck, 3)
     
-    for card in cards:
-        await update.message.reply_text(f"{num} cards {card}")
-        await asyncio.sleep(0.5)
+    # 3 cards ek hi message mein
+    result = "\n".join([f"{num} cards {card}" for card in cards])
+    await update.message.reply_text(f"Result for {num}:\n{result}")
+
+async def sps(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    alive, is_admin = await security_check(update, context)
+    if not alive or not is_admin: return
+    await update.message.reply_text(random.choice(["Stone", "Paper", "Scissors"]))
 
 if __name__ == '__main__':
     bot = ApplicationBuilder().token(TOKEN).build()
-    bot.add_handler(CommandHandler(["rol", "rolll", "stop"], handle_roll_modes))
+    
+    # Handlers
+    bot.add_handler(CommandHandler(["rol", "rool", "rolll", "stop"], handle_roll_modes))
     bot.add_handler(CommandHandler("roll", roll))
     bot.add_handler(CommandHandler("show", show))
+    bot.add_handler(CommandHandler("sps", sps))
+    
+    print("Bot is running...")
     bot.run_polling()
