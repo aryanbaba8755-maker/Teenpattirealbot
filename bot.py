@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # --- CONFIG ---
-TOKEN = "YOUR_NEW_TOKEN_HERE" # Revoke karke naya token daalein
+TOKEN = "8699525997:AAHTja1rJ4RwKPd3QV-Ye8hg-VnE19kTOSo"
 OWNER_ID = 7007926290
 OWNER_USER = "spidyvarun"
 
