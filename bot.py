@@ -1,7 +1,7 @@
 import random
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-TOKEN = "YOUR_TOKEN_HERE" # Apna Naya Token daalein
+TOKEN = "8699525997:AAEkJ7ePN7RjCTvonA_WGtExPl46D8gDdM4"
 OWNER_ID = 7007926290
 
 # Bot ka State
