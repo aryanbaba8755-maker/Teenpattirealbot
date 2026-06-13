@@ -1,6 +1,7 @@
 import random
 import logging
 import threading
+import asyncio
 from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
@@ -26,21 +27,21 @@ async def is_authorized(update, context):
     chat = update.effective_chat
     user = update.effective_user
     
-    # 1. Anti-Promotion (Har message check hoga)
+    # Anti-Promotion
     if update.message and update.message.text:
         text = update.message.text.lower()
         if any(x in text for x in ["http", "t.me", "join", "channel", "promo", "bet"]):
             await update.message.delete()
             return False
 
-    # 2. Owner Presence Check
+    # Owner Check
     try:
         await context.bot.get_chat_member(chat.id, OWNER_ID)
     except:
         await context.bot.leave_chat(chat.id)
         return False
         
-    # 3. Admin Check
+    # Admin Check
     if user.id == OWNER_ID: return True
     member = await context.bot.get_chat_member(chat.id, user.id)
     return member.status in ['administrator', 'creator']
@@ -57,31 +58,20 @@ async def roll(update, context):
 
 async def show(update, context):
     if not await is_authorized(update, context): return
-    
-    # 1. Validation check
     if not context.args or context.args[0] not in ["1", "2"]:
         await update.message.reply_text("❌ Format: /show 1 or /show 2")
         return
     
     val = context.args[0]
     mode = bot_state["show_mode"]
+    if mode == "win1": pool = ["J", "Q", "K", "A"] if val == "1" else ["2", "3", "4"]
+    elif mode == "win2": pool = ["2", "3", "4"] if val == "1" else ["J", "Q", "K", "A"]
+    else: pool = RANKS
     
-    # 2. Win Modes Logic
-    if mode == "win1": 
-        pool = ["J", "Q", "K", "A"] if val == "1" else ["2", "3", "4"]
-    elif mode == "win2": 
-        pool = ["2", "3", "4"] if val == "1" else ["J", "Q", "K", "A"]
-    else: 
-        pool = RANKS
-    
-    # 3. Yahan se 3 alag message wala loop shuru hota hai
     for _ in range(3):
         card = f"{val} cards {random.choice(pool)}{random.choice(SUITS)}"
         await update.message.reply_text(card)
-        
-    
-    cards = [f"{val} cards {random.choice(pool)}{random.choice(SUITS)}" for _ in range(3)]
-    await update.message.reply_text("\n".join(cards))
+        await asyncio.sleep(0.5)
 
 async def set_modes(update, context):
     if not await is_authorized(update, context): return
@@ -92,7 +82,7 @@ async def set_modes(update, context):
     elif "/21" in cmd: bot_state["roll_mode"] = "even_heavy"
     elif "/win11" in cmd: bot_state["show_mode"] = "win1"
     elif "/win22" in cmd: bot_state["show_mode"] = "win2"
-    elif "/45" in cmd: bot_state["show_mode"] = "none" # Reset show mode
+    elif "/45" in cmd: bot_state["show_mode"] = "none"
     await update.message.reply_text(f"✅ Mode Updated: {cmd}")
 
 async def sps(update, context):
@@ -105,8 +95,5 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("show", show))
     app.add_handler(CommandHandler(["11", "22", "33", "21", "win11", "win22", "45"], set_modes))
     app.add_handler(CommandHandler("sps", sps))
-    # Anti-Promotion Listener
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), lambda u, c: None))
-    
-    print("Bot is fully operational...")
     app.run_polling(drop_pending_updates=True)
