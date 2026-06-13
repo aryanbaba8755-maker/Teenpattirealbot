@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Configuration
-TOKEN = "YOUR_TOKEN_HERE"
+TOKEN = "8699525997:AAH7VjvluYvif8Yt32IxI-wKVRa1muo7yOo"
 OWNER_ID = 7007926290
 
 # State
