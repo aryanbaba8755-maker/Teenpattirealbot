@@ -96,7 +96,8 @@ async def show_result(update, context):
                 suit = random.choice(suits)
                 cards.append((rank, suit))
     
-    # NEW FORMAT
+    # NEW FORMAT - ✅ FIXED: 
+ as escape character
     reply = ""
     for i, (rank, suit) in cards:
         reply += f"1 cards {rank} {suit}
@@ -105,7 +106,7 @@ async def show_result(update, context):
     await update.message.reply_text(reply)
 
 async def roll_logic(update, context):
-    """Roll dice - NORMAL numbers (1-6) instead of even/odd"""
+    """Roll dice - NORMAL numbers (1-6)"""
     if not await is_owner_or_admin(update, context):
         await update.message.reply_text("❌ Only owner/admin can use this command")
         return
@@ -123,7 +124,7 @@ async def roll_logic(update, context):
         return
     bot_state["last_commands"].add(cmd_key)
     
-    # ✅ CHANGED: Normal random number 1-6 (instead of even/odd)
+    # Normal random number 1-6
     dice = random.randint(1, 6)
     await update.message.reply_text(str(dice))
 
