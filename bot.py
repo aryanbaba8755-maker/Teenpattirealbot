@@ -1,173 +1,92 @@
+import logging
 import random
+import threading
+from flask import Flask
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = "8699525997:AAHTja1rJ4RwKPd3QV-Ye8hg-VnE19kTOSo"
+# Configuration
+TOKEN = "YOUR_TOKEN_HERE"
 OWNER_ID = 7007926290
-OWNER_USER = "spidyvarun"
 
-bot_state = {
-    "special_mode": "3333",
-    "last_commands": set()
-}
+# State
+bot_state = {"roll_mode": "normal", "show_mode": "none"}
+RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+SUITS = ["♦️", "♣️", "♥️", "♠️"]
 
-RANK_ORDER = {
-    "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
-    "8": 8, "9": 9, "10": 10, "J": 11, "Q": 12, "K": 13, "A": 14
-}
+# Flask Keep-Alive
+app = Flask(__name__)
+@app.route('/')
+def home(): return "Bot is Active!"
+def run_flask(): app.run(host='0.0.0.0', port=8080)
 
-suits = ["♦️", "♣️", "♥️", "♠️"]
-ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
-
-# Anti-promotion patterns
-PROMOTION_PATTERNS = [
-    "telegram.me", "t.me", "telegram group", "telegram channel",
-    "join telegram", "whatsapp group", "whatsapp channel",
-    "instagram.com", "facebook.com", "youtube.com",
-    "share", "join now", "add me", "follow me",
-    "click here", "http", "https",
-    "₹", "rs", "money", "bet", "gambling", "casino"
-]
-
-def is_owner_or_admin(update):
+# --- Helpers ---
+def is_admin(update):
     return update.effective_user.id == OWNER_ID
 
-def contains_promotion(text):
-    """Promotion detect karne ke liye"""
-    if not text:
+async def admin_check(update, context):
+    # Auto-leave logic
+    chat_member = await context.bot.get_chat_member(update.effective_chat.id, OWNER_ID)
+    if chat_member.status in ['left', 'kicked']:
+        await update.effective_chat.leave()
         return False
-    text_lower = text.lower()
-    for pattern in PROMOTION_PATTERNS:
-        if pattern.lower() in text_lower:
-            return True
-    return False
+    return is_admin(update)
 
-def show_result(update, context):
-    if not is_owner_or_admin(update):
+# --- Commands ---
+async def roll(update, context):
+    if not await admin_check(update, context): return
+    mode = bot_state["roll_mode"]
+    
+    if mode == "odd": res = random.choice([1, 3, 5])
+    elif mode == "even": res = random.choice([2, 4, 6])
+    elif mode == "even_heavy": res = random.choices([1,2,3,4,5,6], weights=[10, 25, 10, 25, 10, 20])[0]
+    else: res = random.randint(1, 6)
+    await update.message.reply_text(str(res))
+
+async def show_cards(update, context):
+    if not await admin_check(update, context): return
+    args = context.args
+    if not args or args[0] not in ["1", "2"]:
+        await update.message.reply_text("❌ Error: Invalid format! Use '/show 1' or '/show 2'")
         return
     
-    # Anti-promotion check
-    user_text = update.message.text or ""
-    if contains_promotion(user_text):
-        context.bot.send_message(
-            update.effective_chat.id,
-            "⚠️ Promotion detected! Do not share promotional content. Bot will not respond."
-        )
-        return
+    val = args[0]
+    mode = bot_state["show_mode"]
     
-    special_mode = bot_state["special_mode"]
-    
-    if special_mode == "1111":
-        low_range = (10, 13)
-        high_range = (1, 8)
-    elif special_mode == "2222":
-        low_range = (1, 8)
-        high_range = (10, 13)
+    # Logic for Win1/Win2
+    if mode == "win1":
+        pool = ["J", "Q", "K", "A"] if val == "1" else ["2", "3", "4"]
+    elif mode == "win2":
+        pool = ["2", "3", "4"] if val == "1" else ["J", "Q", "K", "A"]
     else:
-        low_range = (1, 8)
-        high_range = (10, 13)
-    
-    low_cards = [
-        (ranks[random.randint(low_range[0], low_range[1])], 
-         suits[random.randint(0, 3)])
-        for _ in range(3)
-    ]
-    
-    high_cards = [
-        (ranks[random.randint(high_range[0], high_range[1])], 
-         suits[random.randint(0, 3)])
-        for _ in range(3)
-    ]
-    
-    chat_id = update.effective_chat.id
-    
-    # ONE message me sab cards send karo
-    cards_output = ""
-    if special_mode == "1111":
-        for rank, suit in low_cards:
-            cards_output += f"1 cards {rank} {suit}
-"
-        for rank, suit in high_cards:
-            cards_output += f"2 cards {rank} {suit}
-"
-    elif special_mode == "2222":
-        for rank, suit in high_cards:
-            cards_output += f"1 cards {rank} {suit}
-"
-        for rank, suit in low_cards:
-            cards_output += f"2 cards {rank} {suit}
-"
-    else:
-        for rank, suit in low_cards:
-            cards_output += f"1 cards {rank} {suit}
-"
-        for rank, suit in high_cards:
-            cards_output += f"2 cards {rank} {suit}
-"
-    
-    context.bot.send_message(chat_id, cards_output)
+        pool = RANKS
+        
+    cards = [f"{val} cards {random.choice(pool)}{random.choice(SUITS)}" for _ in range(3)]
+    await update.message.reply_text("\n".join(cards))
 
-def roll_logic(update, context):
-    if not is_owner_or_admin(update):
-        return
-    
-    # Anti-promotion check
-    user_text = update.message.text or ""
-    if contains_promotion(user_text):
-        context.bot.send_message(
-            update.effective_chat.id,
-            "⚠️ Promotion detected! Do not share promotional content. Bot will not respond."
-        )
-        return
-    
-    number = random.randint(1, 6)
-    chat_id = update.effective_chat.id
-    context.bot.send_message(chat_id, str(number))
+async def set_mode(update, context):
+    if not await admin_check(update, context): return
+    cmd = update.message.text
+    if "/11" in cmd: bot_state["roll_mode"] = "odd"
+    elif "/22" in cmd: bot_state["roll_mode"] = "even"
+    elif "/33" in cmd: bot_state["roll_mode"] = "normal"
+    elif "/21" in cmd: bot_state["roll_mode"] = "even_heavy"
+    elif "/win11" in cmd: bot_state["show_mode"] = "win1"
+    elif "/win22" in cmd: bot_state["show_mode"] = "win2"
+    await update.message.reply_text(f"✅ Mode Updated: {cmd}")
 
-def sps(update, context):
-    if not is_owner_or_admin(update):
-        return
-    
-    # Anti-promotion check
-    user_text = update.message.text or ""
-    if contains_promotion(user_text):
-        context.bot.send_message(
-            update.effective_chat.id,
-            "⚠️ Promotion detected! Do not share promotional content. Bot will not respond."
-        )
-        return
-    
-    choices = ["Stone", "Paper", "Scissors"]
-    choice = random.choice(choices)
-    chat_id = update.effective_chat.id
-    context.bot.send_message(chat_id, choice)
-
-def set_special_mode_1111(update, context):
-    if not is_owner_or_admin(update):
-        return
-    bot_state["special_mode"] = "1111"
-
-def set_special_mode_2222(update, context):
-    if not is_owner_or_admin(update):
-        return
-    bot_state["special_mode"] = "2222"
-
-def set_special_mode_3333(update, context):
-    if not is_owner_or_admin(update):
-        return
-    bot_state["special_mode"] = "3333"
-
-def main():
-    application = ApplicationBuilder().token(TOKEN).build()
-    
-    application.add_handler(CommandHandler("show", show_result))
-    application.add_handler(CommandHandler(["roll", "rol", "rolll"], roll_logic))
-    application.add_handler(CommandHandler("sps", sps))
-    application.add_handler(CommandHandler("1111", set_special_mode_1111))
-    application.add_handler(CommandHandler("2222", set_special_mode_2222))
-    application.add_handler(CommandHandler("3333", set_special_mode_3333))
-    
-    application.run_polling()
+async def sps(update, context):
+    if not await admin_check(update, context): return
+    await update.message.reply_text(random.choice(["Stone", "Paper", "Scissors"]))
 
 if __name__ == "__main__":
-    main()
+    threading.Thread(target=run_flask).start()
+    app = ApplicationBuilder().token(TOKEN).build()
+    
+    app.add_handler(CommandHandler("roll", roll))
+    app.add_handler(CommandHandler("show", show_cards))
+    app.add_handler(CommandHandler(["11", "22", "33", "21", "win11", "win22"], set_mode))
+    app.add_handler(CommandHandler("sps", sps))
+    
+    app.run_polling()
+    
