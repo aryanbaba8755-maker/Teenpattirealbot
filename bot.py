@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 # --- Configuration ---
-TOKEN = "YOUR_TOKEN_HERE" # Apna naya token yahan daalein
+TOKEN = "8699525997:AAEkJ7ePN7RjCTvonA_WGtExPl46D8gDdM4"
 OWNER_ID = 7007926290
 
 # --- Flask Keep Alive (24/7) ---
